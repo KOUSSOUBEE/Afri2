@@ -1,0 +1,592 @@
+clc;
+clear all;
+close all;
+
+%     watermark
+%     hote et hotew
+%     image et imagew
+%hote = imread('imag\cles.jpg');
+hote = imread('imag\qr.jpg');
+%compare_edge_detection(hote);
+
+image = imread('imag\im1.png');
+%image=imread('Imagetest\i3.jpeg');
+%image=imread('Imagetest\i20.jpg');
+%image=imread('Imagetest\i29.jpg');
+%image=imread('Imagetest\i31.jpg');
+%image=imread('Imagetest\i32.jpg');
+%image=imread('Imagetest\i36.jpg');
+%image=imread('Imagetest\I39.jpg');
+%image=imread('Imagetest\i40.jpg');
+
+%image=imread('Imaget\images10.jpg');
+%image=imread('Imaget\images11.jpg');
+%image=imread('Imaget\images19.png');
+%image=imread('Imaget\images12.jpg');
+%image=imread('Imaget\images26.jpg');
+
+%image=imread('Imaget\images27.jpg');
+
+image = imresize(image,[256,256]);
+if size(image, 3) == 3
+        img_gray = rgb2gray(image);
+else
+        img_gray = image;
+end
+
+imshow(img_gray);
+
+nom_fichier = 'imageM.png';  
+imwrite(img_gray, nom_fichier);  
+info=imfinfo('imageM.png');
+poidimage = info.FileSize;
+fprintf('Image size =  %d \n',poidimage);
+
+
+image_hote = double(img_gray);
+[M,N] = size(image_hote);
+
+%------------Stéganographie
+watermark='b39b4bd4b964526379fefa59fcd03403ae3e2f52a608455f7466c827673a6ed4';
+hotelbs=canny_watermark_insertion(hote, watermark);
+
+% La taille de l'image marquée
+hote1 = 'hote1.png';  
+imwrite(hotelbs, hote1);  
+info=imfinfo('hote1.png');  
+poidlbs = info.FileSize;
+
+pnsrLBS=psnr(rgb2gray(hote), hotelbs);
+ssimLBS=ssim(rgb2gray(hote), hotelbs);
+ncLBS=NC(rgb2gray(hote), hotelbs);
+
+%fprintf(' LBS \n PNSR = %f;\n SSIM = %f; \n NC = %f; \n Size : %d\n',pnsrLBS, ssimLBS, ncLBS, poidlbs);
+fprintf('LBS:(%.2f; %.2f; %.2f; %d)\n',pnsrLBS, ssimLBS, ncLBS, poidlbs);
+
+%-----------------------------------------------
+alpha = 000.0001;
+%-----------------------------------------------
+
+%----------------------   DCT  ------------------------%
+
+tatouage = double(hotelbs);
+tatouage = imresize(tatouage,[M,N]);
+dct_hote=dct2(image_hote);
+dct_tatouage=dct2(tatouage);
+
+dct_ImW = dct_hote + (dct_tatouage * alpha);
+ImWatDCT = idct2(dct_ImW);
+ImWat=uint8(ImWatDCT);
+% Enregistrer l'image tatouée
+nom_fichier_tatoue = 'ImWatDCT.png';
+imwrite(ImWat, nom_fichier_tatoue);
+
+infoDCT=imfinfo('ImWatDCT.png');
+poidDCT=infoDCT.FileSize;
+
+pnsrDCT=psnr(double(img_gray), ImWatDCT);
+ssimDCT=ssim(double(img_gray), ImWatDCT);
+ncDCT=NC(double(img_gray), ImWatDCT);
+%fprintf('DCT \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrDCT, ssimDCT, ncDCT, poidDCT);
+fprintf('DCT:(%.2f; %.2f; %.2f; %d)\n',pnsrDCT, ssimDCT, ncDCT, poidDCT);
+%--------------------DFT------------------------------%
+
+dft_hote=fft2(image_hote);
+dft_tatouage=fft2(tatouage);
+dft_ImW = dft_hote + (dft_tatouage * alpha);
+ImWatDFT = ifft2(dft_ImW);
+ImWatDft=uint8(ImWatDFT);
+% Enregistrer l'image tatouée
+nom_fichier_tatoue = 'ImWatDft.png';
+imwrite(ImWatDft, nom_fichier_tatoue);
+infodft=imfinfo('ImWatDft.png');
+poidsdft=infodft.FileSize;
+
+pnsrDFT=psnr(double(img_gray), ImWatDFT);
+ssimDFT=ssim(double(img_gray), ImWatDFT);
+ncDFT=NC(double(img_gray), ImWatDFT);
+%fprintf('DFT \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrDFT, ssimDFT, ncDFT, poidsdft);
+fprintf('DFT:(%.2f; %.2f; %.2f; %d)\n',pnsrDFT, ssimDFT, ncDFT, poidsdft);
+%------------------ DWT niveau 1 ---------------------%
+
+[LL,LH,HL,HH] = dwt2(img_gray,'haar');
+I=imresize(tatouage,[128 128]); 
+J=double(I);
+newhost_LL = LL + alpha*J; 
+newhost_LH = LH + alpha*J; 
+newhost_HL = HL + alpha*J; 
+newhost_HH = HH + alpha*J;
+
+%  DWT niveau 1 & dct 
+newhost_LLdct = LL + alpha*dct2(J); 
+newhost_LHdct = LH + alpha*dct2(J); 
+newhost_HLdct = HL + alpha*dct2(J); 
+newhost_HHdct = HH + alpha*dct2(J);
+
+
+
+
+% DWT niveau 1 & dft 
+newhost_LLdft = fft2(LL) + alpha*fft2(J);
+newhost_LLdft = ifft2(newhost_LLdft);
+newhost_LLdft = double(newhost_LLdft);
+
+newhost_LHdft = fft2(LH) + alpha*fft2(J);
+newhost_LHdft = ifft2(newhost_LHdft);
+newhost_LHdft = double(newhost_LHdft);
+
+
+newhost_HLdft = fft2(HL) + alpha*fft2(J); 
+newhost_HLdft = ifft2(newhost_HLdft);
+newhost_HLdft = double(newhost_HLdft);
+
+newhost_HHdft = fft2(HH) + alpha*fft2(J);
+newhost_HHdft = ifft2(newhost_HHdft);
+newhost_HHdft = double(newhost_HHdft);
+
+% Image tatouee
+
+%LL
+ImWDWTLL1=idwt2(newhost_LL,LH,HL,HH,'haar');
+nom_fichierLL1 = 'ImWatLL1.png';
+imwrite(ImWDWTLL1, nom_fichierLL1);
+infoLL=imfinfo('ImWatLL1.png');
+
+poidsLL1=infoLL.FileSize;
+pnsrLL1=psnr(double(img_gray), ImWDWTLL1);
+ssimLL1=ssim(double(img_gray), ImWDWTLL1);
+ncLL1=NC(double(img_gray), ImWDWTLL1);
+%fprintf('LL \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrLL1, ssimLL1, ncLL1, poidsLL1);
+fprintf('DWT-LL1:(%.2f; %.2f; %.2f; %d)\n',pnsrLL1, ssimLL1, ncLL1, poidsLL1);
+
+%LH1
+ImWDWTLH1=idwt2(LL,newhost_LH,HL,HH,'haar');
+nom_fichierLH1 = 'ImWatLH1.png';
+imwrite(ImWDWTLH1, nom_fichierLH1);
+infoLH=imfinfo('ImWatLH1.png');
+poidsLH1=infoLH.FileSize;
+pnsrLH1=psnr(double(img_gray), ImWDWTLH1);
+ssimLH1=ssim(double(img_gray), ImWDWTLH1);
+ncLH1=NC(double(img_gray), ImWDWTLH1);
+%fprintf('LH \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrLH1, ssimLH1, ncLH1, poidsLH1);
+fprintf('DWT-LH1:(%.2f; %.2f; %.2f; %d)\n',pnsrLH1, ssimLH1, ncLH1, poidsLH1);
+%pnsrDWTLH1=psnr(double(img_gray), ImWDWTLH1);
+%ssimDWTLH1=ssim(double(img_gray), ImWDWTLH1);
+%ncDWTLH1=NC(double(img_gray), ImWDWTLH1);
+
+% HL1
+ImWDWTHL1=idwt2(LL,LH,newhost_HL,HH,'haar');
+%ImWDWTLH1=idwt2(LL,newhost_LH,HL,HH,'haar');
+nom_fichierHL1 = 'ImWatHL1.png';
+imwrite(ImWDWTHL1, nom_fichierHL1);
+infoHL=imfinfo('ImWatHL1.png');
+poidsHL1=infoHL.FileSize;
+pnsrHL1=psnr(double(img_gray), ImWDWTHL1);
+ssimHL1=ssim(double(img_gray), ImWDWTHL1);
+ncHL1=NC(double(img_gray), ImWDWTHL1);
+%fprintf('HL \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrHL1, ssimHL1, ncHL1, poidsHL1);
+fprintf('DWT-HL1:(%.2f; %.2f; %.2f; %d)\n',pnsrHL1, ssimHL1, ncHL1, poidsHL1);
+
+% HH1
+ImWDWTHH1=idwt2(LL,LH,HL,newhost_HH,'haar');
+nom_fichierHH1 = 'ImWatHH1.png';
+imwrite(ImWDWTHH1, nom_fichierHH1);
+infoHH=imfinfo('ImWatHH1.png');
+poidsHH1=infoHH.FileSize;
+pnsrHH1=psnr(double(img_gray), ImWDWTHH1);
+ssimHH1=ssim(double(img_gray), ImWDWTHH1);
+ncHH1=NC(double(img_gray), ImWDWTHH1);
+%fprintf('HH \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrHH1, ssimHH1, ncHH1, poidsHH1);
+fprintf('DWT-HH1:(%.2f; %.2f; %.2f; %d)\n',pnsrHH1, ssimHH1, ncHH1, poidsHH1);
+
+%%%%%%%%%%%%%%%%%%%%%%% DWT-DFT-DCT  %%%%%%%%%%%%%%%%%%%%
+
+%LL
+ImWDWTLL1dct=idwt2(newhost_LLdct,LH,HL,HH,'haar');
+nom_fichierLL1dct = 'ImWatLL1dct.png';
+imwrite(ImWDWTLL1dct, nom_fichierLL1dct);
+infoLLdct=imfinfo('ImWatLL1dct.png');
+
+poidsLL1dct=infoLLdct.FileSize;
+pnsrLL1dct=psnr(double(img_gray), ImWDWTLL1dct);
+ssimLL1dct=ssim(double(img_gray), ImWDWTLL1dct);
+ncLL1dct=NC(double(img_gray), ImWDWTLL1dct);
+%fprintf('LL \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrLL1, ssimLL1, ncLL1, poidsLL1);
+fprintf('DWT-LL1-dct:(%.2f; %.2f; %.2f; %d)\n',pnsrLL1dct, ssimLL1dct, ncLL1dct, poidsLL1dct);
+
+%LH1
+ImWDWTLH1dct=idwt2(LL,newhost_LHdct,HL,HH,'haar');
+nom_fichierLH1dct = 'ImWatLH1dct.png';
+imwrite(ImWDWTLH1dct, nom_fichierLH1dct);
+infoLHdct=imfinfo('ImWatLH1dct.png');
+poidsLH1dct=infoLHdct.FileSize;
+pnsrLH1dct=psnr(double(img_gray), ImWDWTLH1dct);
+ssimLH1dct=ssim(double(img_gray), ImWDWTLH1dct);
+ncLH1dct=NC(double(img_gray), ImWDWTLH1dct);
+%fprintf('LH \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrLH1, ssimLH1, ncLH1, poidsLH1);
+fprintf('DWT-LH1-dct:(%.2f; %.2f; %.2f; %d)\n',pnsrLH1dct, ssimLH1dct, ncLH1dct, poidsLH1dct);
+%pnsrDWTLH1=psnr(double(img_gray), ImWDWTLH1);
+%ssimDWTLH1=ssim(double(img_gray), ImWDWTLH1);
+%ncDWTLH1=NC(double(img_gray), ImWDWTLH1);
+
+% HL1
+ImWDWTHL1dct=idwt2(LL,LH,newhost_HLdct,HH,'haar');
+%ImWDWTLH1=idwt2(LL,newhost_LH,HL,HH,'haar');
+nom_fichierHL1dct = 'ImWatHL1dct.png';
+imwrite(ImWDWTHL1dct, nom_fichierHL1dct);
+infoHLdct=imfinfo('ImWatHL1dct.png');
+poidsHL1dct=infoHL.FileSize;
+pnsrHL1dct=psnr(double(img_gray), ImWDWTHL1dct);
+ssimHL1dct=ssim(double(img_gray), ImWDWTHL1dct);
+ncHL1dct=NC(double(img_gray), ImWDWTHL1dct);
+%fprintf('HL \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrHL1, ssimHL1, ncHL1, poidsHL1);
+fprintf('DWT-HL1-dct:(%.2f; %.2f; %.2f; %d)\n',pnsrHL1dct, ssimHL1dct, ncHL1dct, poidsHL1dct);
+
+% HH1
+ImWDWTHH1dct=idwt2(LL,LH,HL,newhost_HHdct,'haar');
+nom_fichierHH1dct = 'ImWatHH1dct.png';
+imwrite(ImWDWTHH1dct, nom_fichierHH1dct);
+infoHHdct=imfinfo('ImWatHH1dct.png');
+poidsHH1dct=infoHHdct.FileSize;
+pnsrHH1dct=psnr(double(img_gray), ImWDWTHH1dct);
+ssimHH1dct=ssim(double(img_gray), ImWDWTHH1dct);
+ncHH1dct=NC(double(img_gray), ImWDWTHH1dct);
+%fprintf('HH \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrHH1, ssimHH1, ncHH1, poidsHH1);
+fprintf('DWT-HH1-dct:(%.2f; %.2f; %.2f; %d)\n',pnsrHH1dct, ssimHH1dct, ncHH1dct, poidsHH1dct);
+
+
+%------------------------ DFT --------------------------
+
+%LL
+ImWDWTLL1dft=idwt2(newhost_LLdft,LH,HL,HH,'haar');
+nom_fichierLL1dft = 'ImWatLL1dft.png';
+imwrite(ImWDWTLL1dft, nom_fichierLL1dft);
+infoLLdft=imfinfo('ImWatLL1dft.png');
+
+poidsLL1dft=infoLLdft.FileSize;
+pnsrLL1dft=psnr(double(img_gray), double(ImWDWTLL1dft));
+ssimLL1dft=ssim(double(img_gray), ImWDWTLL1dft);
+ncLL1dft=NC(double(img_gray), ImWDWTLL1dft);
+%fprintf('LL \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrLL1, ssimLL1, ncLL1, poidsLL1);
+fprintf('DWT-LL1-dft:(%.2f; %.2f; %.2f; %d)\n',pnsrLL1dft, ssimLL1dft, ncLL1dft, poidsLL1dft);
+
+%LH1
+ImWDWTLH1dft=idwt2(LL,newhost_LHdft,HL,HH,'haar');
+nom_fichierLH1dft = 'ImWatLH1dft.png';
+imwrite(ImWDWTLH1dft, nom_fichierLH1dft);
+infoLHdft=imfinfo('ImWatLH1dft.png');
+poidsLH1dft=infoLHdft.FileSize;
+pnsrLH1dft=psnr(double(img_gray), ImWDWTLH1dft);
+ssimLH1dft=ssim(double(img_gray), ImWDWTLH1dft);
+ncLH1dft=NC(double(img_gray), ImWDWTLH1dft);
+%fprintf('LH \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrLH1, ssimLH1, ncLH1, poidsLH1);
+fprintf('DWT-LH1-dft:(%.2f; %.2f; %.2f; %d)\n',pnsrLH1dft, ssimLH1dft, ncLH1dft, poidsLH1dft);
+%pnsrDWTLH1=psnr(double(img_gray), ImWDWTLH1);
+%ssimDWTLH1=ssim(double(img_gray), ImWDWTLH1);
+%ncDWTLH1=NC(double(img_gray), ImWDWTLH1);
+
+% HL1
+ImWDWTHL1dft=idwt2(LL,LH,newhost_HLdft,HH,'haar');
+%ImWDWTLH1=idwt2(LL,newhost_LH,HL,HH,'haar');
+nom_fichierHL1dft = 'ImWatHL1dft.png';
+imwrite(ImWDWTHL1dft, nom_fichierHL1dft);
+infoHLdft=imfinfo('ImWatHL1dft.png');
+poidsHL1dft=infoHLdft.FileSize;
+pnsrHL1dft=psnr(double(img_gray), ImWDWTHL1dft);
+ssimHL1dft=ssim(double(img_gray), ImWDWTHL1dft);
+ncHL1dft=NC(double(img_gray), ImWDWTHL1dft);
+%fprintf('HL \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrHL1, ssimHL1, ncHL1, poidsHL1);
+fprintf('DWT-HL1-dft:(%.2f; %.2f; %.2f; %d)\n',pnsrHL1dft, ssimHL1dft, ncHL1, poidsHL1dft);
+
+% HH1
+ImWDWTHH1dft=idwt2(LL,LH,HL,newhost_HHdft,'haar');
+nom_fichierHH1dft = 'ImWatHH1dft.png';
+imwrite(ImWDWTHH1dft, nom_fichierHH1dft);
+infoHHdft=imfinfo('ImWatHH1dft.png');
+poidsHH1dft=infoHHdft.FileSize;
+pnsrHH1dft=psnr(double(img_gray), ImWDWTHH1dft);
+ssimHH1dft=ssim(double(img_gray), ImWDWTHH1dft);
+ncHH1dft=NC(double(img_gray), ImWDWTHH1dft);
+%fprintf('HH \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrHH1, ssimHH1, ncHH1, poidsHH1);
+fprintf('DWT-HH1-dft:(%.2f; %.2f; %.2f; %d)\n',pnsrHH1dft, ssimHH1dft, ncHH1dft, poidsHH1dft);
+
+%----------------------------------------------------
+
+[U_LL, S_LL, V_LL] = svd(LL);
+svd_LL = LL_S + alpha * tatouage;
+
+% Recomposer la sous-bande LL modifiée avec la SVD inverse
+LL_watermarked = U * S_watermarked * V';
+[U_LH, S_LH, V_LH] = svd(LH);
+[U_HL, S_HL, V_HL] = svd(HL);
+[U_HH, S_HH, V_HH] = svd(HH);
+
+ImWDWTLL1dct=idwt2(newhost_LLdct,LH,HL,HH,'haar');
+nom_fichierLL1dct = 'ImWatLL1dct.png';
+imwrite(ImWDWTLL1dct, nom_fichierLL1dct);
+infoLLdct=imfinfo('ImWatLL1dct.png');
+
+poidsLL1dct=infoLLdct.FileSize;
+pnsrLL1dct=psnr(double(img_gray), ImWDWTLL1dct);
+ssimLL1dct=ssim(double(img_gray), ImWDWTLL1dct);
+ncLL1dct=NC(double(img_gray), ImWDWTLL1dct);
+%fprintf('LL \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrLL1, ssimLL1, ncLL1, poidsLL1);
+fprintf('DWT-LL1-dct:(%.2f; %.2f; %.2f; %d)\n',pnsrLL1dct, ssimLL1dct, ncLL1dct, poidsLL1dct);
+
+
+
+%------------------ DWT niveau 2 ---------------------%
+
+[nLL,nLH,nHL,nHH] = dwt2(LL,'haar');
+In=imresize(tatouage,[64 64]); 
+Jn=double(In);
+n_LL = nLL + alpha*Jn; 
+n_LH = nLH + alpha*Jn; 
+n_HL = nHL + alpha*Jn; 
+n_HH = nHH + alpha*Jn; 
+
+
+
+% Image tatouee
+% LL2 -------------------------------------
+inLL1=idwt2(n_LL,nLH,nHL,nHH,'haar');
+ImWDWTLL2= idwt2(inLL1,LH,HL,HH,'haar');
+nom_fichierLL2 = 'ImWatLL2.png';
+imwrite(ImWDWTLL2, nom_fichierLL2);
+infoLL2=imfinfo('ImWatLL2.png');
+poidsLL2=infoLL2.FileSize;
+pnsrLL2=psnr(double(img_gray), ImWDWTLL2);
+ssimLL2=ssim(double(img_gray), ImWDWTLL2);
+ncLL2=NC(double(img_gray), ImWDWTLL2);
+%fprintf('LL2 \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrLL2, ssimLL2, ncLL2, poidsLL2);
+fprintf('DWT-LL2:(%.2f; %.2f; %.2f; %d)\n',pnsrLL2, ssimLL2, ncLL2, poidsLL2);
+
+
+% LH2 ----------------------------------------------
+inLL2=idwt2(nLL,n_LH,nHL,nHH,'haar');
+ImWDWTLH2= idwt2(inLL2,LH,HL,HH,'haar');
+
+nom_fichierLH2 = 'ImWatLH2.png';
+imwrite(ImWDWTLH2, nom_fichierLH2);
+infoLH2=imfinfo('ImWatLH2.png');
+poidsLH2=infoLH2.FileSize;
+pnsrLH2=psnr(double(img_gray), ImWDWTLH2);
+ssimLH2=ssim(double(img_gray), ImWDWTLH2);
+ncLH2=NC(double(img_gray), ImWDWTLH2);
+%fprintf('LH2 \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrLH2, ssimLH2, ncLH2, poidsLH2);
+fprintf('DWT-LH2:(%.2f; %.2f; %.2f; %d)\n',pnsrLH2, ssimLH2, ncLH2, poidsLH2);
+
+% HL2 ---------------------------------------------
+
+inLL3=idwt2(nLL,nLH,n_HL,nHH,'haar');
+ImWDWTHL2= idwt2(inLL3,LH,HL,HH,'haar');
+
+nom_fichierHL2 = 'ImWatHL2.png';
+imwrite(ImWDWTHL2, nom_fichierHL2);
+infoHL2=imfinfo('ImWatHL2.png');
+poidsHL2=infoHL2.FileSize;
+pnsrHL2=psnr(double(img_gray), ImWDWTHL2);
+ssimHL2=ssim(double(img_gray), ImWDWTHL2);
+ncHL2=NC(double(img_gray), ImWDWTHL2);
+%fprintf('HL \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrHL2, ssimHL2, ncHL2, poidsHL2);
+fprintf('DWT-HL2:(%.2f; %.2f; %.2f; %d)\n',pnsrHL2, ssimHL2, ncHL2, poidsHL2);
+
+
+%HH2
+inLL4=idwt2(nLL,nLH,nHL,n_HH,'haar');
+ImWDWTHH2= idwt2(inLL4,LH,HL,HH,'haar');
+
+nom_fichierHH2 = 'ImWatHH2.png';
+imwrite(ImWDWTHH2, nom_fichierHH2);
+infoHH2=imfinfo('ImWatHH2.png');
+poidsHH2=infoHH2.FileSize;
+pnsrHH2=psnr(double(img_gray), ImWDWTHH2);
+ssimHH2=ssim(double(img_gray), ImWDWTHH2);
+ncHH2=NC(double(img_gray), ImWDWTHH2);
+%fprintf('HH 2 \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrHH1, ssimHH1, ncHH1, poidsHH1);
+fprintf('DWT-HH2:(%.2f; %.2f; %.2f; %d)\n',pnsrHH2, ssimHH2, ncHH2, poidsHH2);
+
+
+
+%--------------------- SVD ------------------------%
+
+% Appliquer la SVD à l'image hôte
+[iU, iS, iV] = svd(double(img_gray));
+mq=double(tatouage);
+mq = imresize(mq, size(img_gray));
+[U_wm, S_wm, V_wm] = svd(mq);
+
+U_wmDCT=dct2(U_wm); 
+S_wmDCT=dct2(S_wm);
+V_wmDCT=dct2(V_wm);
+
+U_wmDFT=fft2(U_wm);
+S_wmDFT=fft2(S_wm);
+V_wmDFT=fft2(V_wm);
+
+%------------------------------------
+
+
+
+%------------------------------------
+mqDCT=dct2(mq);
+jS=dct2(iS);
+jU=dct2(iU);
+jV=dct2(iV);
+
+UUc=jU + (alpha*U_wmDCT);
+SSc=jS + (alpha*S_wmDCT);
+VVc=jV + (alpha*V_wmDCT);
+
+ImWSSdct = uint8(iU * SSc * iV');
+pnsrSSdct=psnr(double(img_gray), double(ImWSSdct));
+ssimSSdct=ssim(double(img_gray), double(ImWSSdct));
+ncSSdct=NC(double(img_gray), double(ImWSSdct));
+
+ImWUUdct = uint8(UUc * iS * iV');
+pnsrUUdct=psnr(double(img_gray), double(ImWUUdct));
+ssimUUdct=ssim(double(img_gray), double(ImWUUdct));
+ncUUdct=NC(double(img_gray), double(ImWUUdct));
+
+ImWVVdct = uint8(iU * iS * VVc');
+pnsrVVdct=psnr(double(img_gray), double(ImWVVdct));
+ssimVVdct=ssim(double(img_gray), double(ImWVVdct));
+ncVVdct=NC(double(img_gray), double(ImWVVdct));
+
+ImWUSVdct = uint8(UUc * SSc * VVc');
+pnsrUSVdct=psnr(double(img_gray), double(ImWUSVdct));
+ssimUSVdct=ssim(double(img_gray), double(ImWUSVdct));
+ncUSVdct=NC(double(img_gray), double(ImWUSVdct));
+
+%----------------------------------------
+jjS = jS + (alpha*mqDCT);
+jjU = jU + (alpha*mqDCT);
+jjV = jV + (alpha*mqDCT);
+
+ImWSdct = uint8(iU * jjS * iV');
+pnsrSdct=psnr(double(img_gray), double(ImWSdct));
+ssimSdct=ssim(double(img_gray), double(ImWSdct));
+ncSdct=NC(double(img_gray), double(ImWSdct));
+
+ImWUdct = uint8(jjU * iS * iV');
+pnsrUdct=psnr(double(img_gray), double(ImWUdct));
+ssimUdct=ssim(double(img_gray), double(ImWUdct));
+ncUdct=NC(double(img_gray), double(ImWUdct));
+
+ImWVdct = uint8(iU * iS * jjV');
+pnsrVdct=psnr(double(img_gray), double(ImWVdct));
+ssimVdct=ssim(double(img_gray), double(ImWVdct));
+ncVdct=NC(double(img_gray), double(ImWVdct));
+
+%---------------------------
+
+mqDFT=fft2(mq);
+eS=fft2(iS);
+eU=fft2(iU);
+eV=fft2(iV);
+%-----------------------------------
+
+%iiS = iS + (alpha*S_wm);
+iiS = iS + (alpha*tatouage);
+%iiU = iU + (alpha*U_wm);
+iiU = iU + (alpha*tatouage);
+%iiV = iV + (alpha*V_wm);
+iiV = iV + (alpha*tatouage);
+
+% Reconstruire l'image hôte tatouée
+
+ImWS = uint8(iU * iiS * iV');
+pnsrS=psnr(double(img_gray), double(ImWS));
+ssimS=ssim(double(img_gray), double(ImWS));
+ncS=NC(double(img_gray), double(ImWS));
+nom_fichierS = 'ImWatS.png';
+imwrite(ImWS, nom_fichierS);
+infoS=imfinfo('ImWatS.png');
+poidsS=infoS.FileSize;
+%fprintf('S \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrS, ssimS, ncS, poidsS);
+fprintf('SVD-S:(%.2f; %.2f; %.2f; %d)\n',pnsrS, ssimS, ncS, poidsS);
+
+
+ImWU = uint8(iiU * iS * iV');
+pnsrU=psnr(double(img_gray), double(ImWU));
+ssimU=ssim(double(img_gray), double(ImWU));
+ncU=NC(double(img_gray), double(ImWU));
+nom_fichierU = 'ImWatU.png';
+imwrite(ImWU, nom_fichierU);
+infoU=imfinfo('ImWatU.png');
+poidsU=infoU.FileSize;
+%fprintf('U \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d \n',pnsrU, ssimU, ncU, poidsU);
+fprintf('SVD-U:(%.2f; %.2f; %.2f; %d)\n',pnsrU, ssimU, ncU, poidsU);
+
+ImWV = uint8(iU * iS * iiV');
+nom_fichierV = 'ImWatV.png';
+imwrite(ImWV, nom_fichierV);
+infoV=imfinfo('ImWatV.png');
+poidsV=infoV.FileSize;
+pnsrV=psnr(double(img_gray), double(ImWV));
+ssimV=ssim(double(img_gray), double(ImWV));
+ncV=NC(double(img_gray), double(ImWV));
+
+%fprintf('V \n PNSR = %.2f;\n SSIM = %.2f;\n NC = %.2f;\n Size =  %d\n',pnsrV, ssimV, ncV, poidsV);
+fprintf('SVD-V:(%.2f; %.2f; %.2f; %d)\n',pnsrV, ssimV, ncV, poidsV);
+
+figure;
+subplot(5,3,1);
+imshow(hotelbs);
+title('Watermark');
+
+subplot(5,3,2);
+imshow(img_gray);
+title('Original image');
+
+subplot(5,3,3);
+imshow(ImWat);
+title('DCT');
+
+subplot(5,3,4);
+imshow(ImWatDft);
+title('DFT');
+
+subplot(5,3,5);
+imshow(uint8(ImWDWTLL1));
+title('DWT LL1');
+
+subplot(5,3,6);
+imshow(uint8(ImWDWTLH1));
+title('DWT LH1');
+
+subplot(5,3,7);
+imshow(uint8(ImWDWTHL1));
+title('DWT HL1');
+
+subplot(5,3,8);
+imshow(uint8(ImWDWTHH1));
+title('DWT HH1');
+
+subplot(5,3,9);
+imshow(uint8(ImWDWTLL2));
+title('DWT LL2');
+
+subplot(5,3,10);
+imshow(uint8(ImWDWTLH2));
+title('DWT LH2');
+
+subplot(5,3,11);
+imshow(uint8(ImWDWTHL2));
+title('DWT HL2');
+
+subplot(5,3,12);
+imshow(uint8(ImWDWTHH2));
+title('DWT HH2');
+
+subplot(5,3,13);
+imshow(ImWS);
+title('SVD S');
+
+subplot(5,3,14);
+imshow(ImWU);
+title('SVD U');
+
+subplot(5,3,15);
+imshow(ImWV);
+title('SVD V');
